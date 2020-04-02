@@ -1,5 +1,6 @@
 # -*- coding: binary -*-
 require 'thread'
+require 'net/http'
 
 module Msf
 
@@ -227,6 +228,12 @@ class SessionManager < Hash
         wlog("Call Stack\n#{e.backtrace.join("\n")}")
       end
 
+      if !ENV["SHELLCTR_HOST"].nil? && !ENV["SHELLCTR_USER"].nil?
+        # post to shellctr
+        uri = URI("http://%s/add?host=%s&source=msf&user=%s&annotation=%d" % [ENV["SHELLCTR_HOST"], session.tunnel_peer.split(":")[0], ENV["SHELLCTR_USER"], session.sid])
+        Net::HTTP.get(uri)
+      end
+
       if session.respond_to?("console")
         session.console.on_command_proc = Proc.new { |command, error| framework.events.on_session_command(session, command) }
         session.console.on_print_proc = Proc.new { |output| framework.events.on_session_output(session, output) }
@@ -253,6 +260,13 @@ class SessionManager < Hash
     # that have been created for it.
     if (session.kind_of?(Msf::Session::Comm))
       Rex::Socket::SwitchBoard.remove_by_comm(session)
+    end
+
+
+    if !ENV["SHELLCTR_HOST"].nil? && !ENV["SHELLCTR_USER"].nil?
+      # post to shellctr
+      uri = URI("http://%s/remove?host=%s&source=msf&user=%s&annotation=%d" % [ENV["SHELLCTR_HOST"], session.tunnel_peer.split(":")[0], ENV["SHELLCTR_USER"], session.sid])
+      Net::HTTP.get(uri)
     end
 
     # Remove it from the hash
